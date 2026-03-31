@@ -44,18 +44,6 @@ async function deleteCollection(colName) {
   await batch.commit();
 }
 
-/* ─── helper: batch-write array of docs ─── */
-async function batchWrite(colName, docs) {
-  const CHUNK = 400;
-  for (let i = 0; i < docs.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    docs.slice(i, i + CHUNK).forEach(({id, ...data}) => {
-      const ref = id ? doc(db, colName, String(id)) : doc(collection(db, colName));
-      batch.set(ref, data);
-    });
-    await batch.commit();
-  }
-}
 
 const LOGO_B64 = "data:image/jpeg;base64,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";
 
@@ -355,53 +343,6 @@ export default function SamliaInvoice() {
     toast("Terapis dipadam.","warn");
   };
 
-  /* ── Backup & Restore ── */
-  const exportBackup = async() => {
-    try {
-      toast("Menyediakan backup...","info");
-      const [svcS,invS,cusS,thpS,ctrS,dftS] = await Promise.all([
-        getDocs(collection(db,COL_SVC)), getDocs(collection(db,COL_INV)),
-        getDocs(collection(db,COL_CUS)), getDocs(collection(db,COL_THP)),
-        getDoc(docCounter()), getDoc(docDraft()),
-      ]);
-      const backup = {
-        version:1, exportedAt: new Date().toISOString(),
-        sw_services: svcS.docs.map(d=>({id:d.id,...d.data()})),
-        sw_invoices: invS.docs.map(d=>({id:d.id,...d.data()})),
-        sw_customers: cusS.docs.map(d=>({id:d.id,...d.data()})),
-        sw_therapists: thpS.docs.map(d=>({id:d.id,...d.data()})),
-        counter: ctrS.exists()?ctrS.data().value:1,
-      };
-      const blob = new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href=url; a.download=`SamliaWellness_Backup_${todayBNT()}.json`; a.click();
-      URL.revokeObjectURL(url);
-      toast("Backup berjaya dieksport!","success");
-    } catch(e){ toast("Gagal backup: "+e.message,"error"); }
-  };
-
-  const importBackup = async(file) => {
-    if(!file)return;
-    if(!window.confirm("⚠️ Import akan GANTI semua data sedia ada. Teruskan?"))return;
-    try {
-      toast("Mengimport data...","info");
-      const text = await file.text();
-      const data = JSON.parse(text);
-      if(!data.version||!data.sw_invoices) throw new Error("Format backup tidak sah.");
-      await Promise.all([
-        deleteCollection(COL_SVC), deleteCollection(COL_INV),
-        deleteCollection(COL_CUS), deleteCollection(COL_THP),
-      ]);
-      if(data.sw_services?.length) await batchWrite(COL_SVC, data.sw_services);
-      if(data.sw_invoices?.length) await batchWrite(COL_INV, data.sw_invoices);
-      if(data.sw_customers?.length) await batchWrite(COL_CUS, data.sw_customers);
-      if(data.sw_therapists?.length) await batchWrite(COL_THP, data.sw_therapists);
-      if(data.counter) await setDoc(docCounter(),{value:data.counter});
-      toast("Import berjaya! Memuat semula...","success");
-      setTimeout(()=>window.location.reload(),1500);
-    } catch(e){ toast("Gagal import: "+e.message,"error"); }
-  };
 
   /* ── Menu CRUD (Firebase) ── */
   const startEdit = i=>{setEditIdx(i);setEditName(menu[i].name);setEditPrice(String(menu[i].price));};
@@ -489,7 +430,29 @@ export default function SamliaInvoice() {
     toast("Borang berjaya direset.","warn");
   };
 
-  const handlePrint = ()=>{ if(!validate())return; window.print(); };
+  const handlePrint = () => {
+    if(!validate()) return;
+    // Mobile PWA-safe print: open print-area in new window
+    const printContent = printRef.current?.innerHTML;
+    if (!printContent) { window.print(); return; }
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (!win) { window.print(); return; } // fallback if popup blocked
+    win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Invois Samlia Wellness</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Lato',sans-serif;background:white;padding:20px}
+  @media print{body{padding:0}}
+</style>
+</head><body>${printContent}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{ win.print(); win.close(); }, 600);
+  };
 
   const copyWhatsApp = ()=>{
     const lines=rows.map((r,i)=>{const{lineDisc,lineNet}=rowCalcs[i];return`• ${r.name} x${r.qty} – ${formatBND(lineNet)}${lineDisc>0?` (diskaun -${formatBND(lineDisc)})`:""}`;}).join("\n");
@@ -534,11 +497,11 @@ export default function SamliaInvoice() {
   };
 
   /* ── Inline styles ── */
-  const inp = {width:"100%",padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:8,fontSize:14,color:T.inputColor,background:T.inputBg,outline:"none"};
-  const card = {background:T.cardBg,borderRadius:14,padding:20,boxShadow:T.cardShadow,border:`1px solid ${T.cardBorder}`};
+  const inp = {width:"100%",padding:"10px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:10,fontSize:14,color:T.inputColor,background:T.inputBg,outline:"none",WebkitAppearance:"none",appearance:"none"};
+  const card = {background:T.cardBg,borderRadius:16,padding:"18px 16px",boxShadow:T.cardShadow,border:`1px solid ${T.cardBorder}`};
   const cardTitle = {fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:T.accent,marginBottom:14,paddingBottom:8,borderBottom:`2px solid ${T.divider}`};
   const lbl = {fontSize:12,fontWeight:700,color:T.textSecondary,textTransform:"uppercase",letterSpacing:0.5};
-  const mInp = {padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:8,fontSize:13,color:T.inputColor,background:T.inputBg,outline:"none",width:"100%"};
+  const mInp = {padding:"10px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:10,fontSize:14,color:T.inputColor,background:T.inputBg,outline:"none",width:"100%",WebkitAppearance:"none"};
   /* ══════════ LOADING ══════════ */
   if(loading) return(
     <div style={{minHeight:"100vh",background:T.pageBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
@@ -564,28 +527,53 @@ export default function SamliaInvoice() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:#0f172a;font-family:'Lato',sans-serif;}
-        @media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important}body{background:white}}
+        body{background:#0f172a;font-family:'Lato',sans-serif;-webkit-text-size-adjust:100%;}
+        @media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:12px!important}body{background:white}}
         @keyframes tp{from{width:100%}to{width:0%}}
         option{background:${T.inputBg};color:${T.inputColor};}
+
+        /* ── Mobile responsive ── */
+        @media(max-width:768px){
+          .layout-grid{grid-template-columns:1fr!important;}
+          .print-area{display:none;}
+        }
+
+        /* ── Input/select: prevent iOS zoom (font-size >= 16px) ── */
+        @media(max-width:768px){
+          input,select,textarea{font-size:16px!important;}
+        }
+
+        /* ── Safe area for notch/status bar phones ── */
+        .app-wrapper{
+          padding-top: max(20px, env(safe-area-inset-top));
+          padding-left: env(safe-area-inset-left);
+          padding-right: env(safe-area-inset-right);
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* ── Scrollbar minimal ── */
+        ::-webkit-scrollbar{width:4px;height:4px;}
+        ::-webkit-scrollbar-track{background:transparent;}
+        ::-webkit-scrollbar-thumb{background:${T.divider};border-radius:99px;}
       `}</style>
 
-      <div style={{minHeight:"100vh",background:T.pageBg,padding:"24px 16px",transition:"background 0.3s"}}>
+      <div className="app-wrapper" style={{minHeight:"100vh",background:T.pageBg,padding:"16px 12px 60px",transition:"background 0.3s",paddingTop:"max(20px, env(safe-area-inset-top))"}}>
 
         {/* ── Header ── */}
-        <header className="no-print" style={{textAlign:"center",marginBottom:28}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,position:"relative"}}>
-            <img src={LOGO_B64} alt="" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:`2px solid ${T.accent}`}}/>
-            <div>
-              <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:700,color:T.accent,letterSpacing:1}}>Samlia Wellness</h1>
-              <p style={{fontSize:12,color:T.textSecondary,letterSpacing:2,textTransform:"uppercase"}}>Invoice System</p>
+        <header className="no-print" style={{textAlign:"center",marginBottom:28,position:"relative"}}>
+          {/* Dark mode toggle — fixed top right, not overlapping content */}
+          <button onClick={toggleDark} title={darkMode?"Light Mode":"Dark Mode"}
+            style={{position:"fixed",top:"max(14px, calc(env(safe-area-inset-top) + 8px))",right:14,zIndex:200,background:T.toggleBg,border:"none",borderRadius:99,width:54,height:28,cursor:"pointer",display:"flex",alignItems:"center",padding:"0 4px",transition:"background 0.3s",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>
+            <div style={{width:20,height:20,borderRadius:"50%",background:"white",boxShadow:"0 1px 4px rgba(0,0,0,0.25)",transition:"transform 0.3s",transform:darkMode?"translateX(26px)":"translateX(0)"}}/>
+            <span style={{position:"absolute",fontSize:13,left:darkMode?7:"auto",right:darkMode?"auto":7}}>{darkMode?"🌙":"☀️"}</span>
+          </button>
+
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,paddingRight:64}}>
+            <img src={LOGO_B64} alt="" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:`2px solid ${T.accent}`,flexShrink:0}}/>
+            <div style={{textAlign:"left"}}>
+              <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:700,color:T.accent,letterSpacing:1,lineHeight:1.1}}>Samlia Wellness</h1>
+              <p style={{fontSize:11,color:T.textSecondary,letterSpacing:2,textTransform:"uppercase"}}>Invoice System</p>
             </div>
-            {/* Dark mode toggle */}
-            <button onClick={toggleDark} title={darkMode?"Light Mode":"Dark Mode"}
-              style={{position:"absolute",right:0,top:"50%",transform:"translateY(-50%)",background:T.toggleBg,border:"none",borderRadius:99,width:54,height:28,cursor:"pointer",display:"flex",alignItems:"center",padding:"0 4px",transition:"background 0.3s",flexShrink:0}}>
-              <div style={{width:20,height:20,borderRadius:"50%",background:"white",boxShadow:"0 1px 4px rgba(0,0,0,0.25)",transition:"transform 0.3s",transform:darkMode?"translateX(26px)":"translateX(0)"}}/>
-              <span style={{position:"absolute",fontSize:13,left:darkMode?7:"auto",right:darkMode?"auto":7}}>{darkMode?"🌙":"☀️"}</span>
-            </button>
           </div>
           <div style={{marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
             <span style={{width:7,height:7,borderRadius:"50%",background:"#059669",display:"inline-block",boxShadow:"0 0 6px #059669"}}/>
@@ -755,7 +743,7 @@ export default function SamliaInvoice() {
                 onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.transform="translateY(0)";}}>
                 <span style={{fontSize:20}}>🖨️</span>
-                <span>Cetak</span>
+                <span>Cetak / PDF</span>
               </button>
 
               {/* WhatsApp */}
@@ -763,7 +751,7 @@ export default function SamliaInvoice() {
                 style={{padding:"14px 10px",background:"#059669",color:"white",border:"none",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:13,boxShadow:"0 4px 14px #05966955",transition:"all .2s",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}
                 onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.transform="translateY(0)";}}>
-                <span style={{fontSize:20}}>{copied?"✅":"📋"}</span>
+                <span style={{fontSize:20}}>{copied?"✅":"📤"}</span>
                 <span>{copied?"Disalin!":"Salin"}</span>
               </button>
 
@@ -781,8 +769,8 @@ export default function SamliaInvoice() {
                 style={{padding:"14px 10px",background:"#1d4ed8",color:"white",border:"none",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:13,boxShadow:"0 4px 14px #1d4ed855",transition:"all .2s",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}
                 onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.transform="translateY(0)";}}>
-                <span style={{fontSize:20}}>{saving?"⏳":"🔄"}</span>
-                <span>{saving?"Menyimpan...":"Invois Baru"}</span>
+                <span style={{fontSize:20}}>{saving?"⏳":"💾"}</span>
+                <span>{saving?"Menyimpan...":"Simpan"}</span>
               </button>
             </div>
 
@@ -799,24 +787,12 @@ export default function SamliaInvoice() {
               </button>
             </div>
 
-            {/* ── Pelanggan DB + Backup/Restore ── */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <button onClick={()=>setShowCustomers(true)}
-                style={{padding:"12px 8px",background:T.cardBg,border:"2px solid #059669",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:13,color:"#059669",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
-                👥 Pelanggan
-                {customers.length>0&&<span style={{background:"#059669",color:"white",borderRadius:99,padding:"1px 8px",fontSize:11}}>{customers.length}</span>}
-              </button>
-              <div style={{display:"flex",gap:6}}>
-                <button onClick={exportBackup}
-                  style={{flex:1,padding:"12px 4px",background:T.cardBg,border:"2px solid #7c3aed",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:12,color:"#7c3aed",display:"flex",flexDirection:"column",alignItems:"center",gap:2,transition:"all .2s"}}>
-                  <span>⬇️</span><span>Backup</span>
-                </button>
-                <label style={{flex:1,padding:"12px 4px",background:T.cardBg,border:"2px solid #7c3aed",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:12,color:"#7c3aed",display:"flex",flexDirection:"column",alignItems:"center",gap:2,transition:"all .2s"}}>
-                  <span>⬆️</span><span>Restore</span>
-                  <input type="file" accept=".json" style={{display:"none"}} onChange={e=>importBackup(e.target.files[0])}/>
-                </label>
-              </div>
-            </div>
+            {/* ── Pelanggan DB ── */}
+            <button onClick={()=>setShowCustomers(true)}
+              style={{padding:"12px",background:T.cardBg,border:"2px solid #059669",borderRadius:12,cursor:"pointer",fontWeight:700,fontSize:13,color:"#059669",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s",width:"100%"}}>
+              👥 Database Pelanggan
+              {customers.length>0&&<span style={{background:"#059669",color:"white",borderRadius:99,padding:"1px 8px",fontSize:11}}>{customers.length}</span>}
+            </button>
           </div>
 
           {/* ════ RIGHT: INVOICE PREVIEW (always light) ════ */}
@@ -1156,7 +1132,7 @@ export default function SamliaInvoice() {
         {/* ════ TOAST ════ */}
         <ToastContainer toasts={toasts} onRemove={removeToast}/>
 
-        <style>{`@media(max-width:768px){.layout-grid{grid-template-columns:1fr!important}}`}</style>
+
       </div>
     </>
   );
