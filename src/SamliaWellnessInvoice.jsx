@@ -31,7 +31,6 @@ const db    = getFirestore(fbApp);
 const COL_SVC = "sw_services";
 const COL_INV = "sw_invoices";
 const COL_CUS = "sw_customers";
-const COL_THP = "sw_therapists";
 const docCounter = () => doc(db, "sw_settings", "counter");
 const docDraft   = () => doc(db, "sw_settings", "draft");
 
@@ -59,7 +58,7 @@ const DEFAULT_MENU = [
   {name:"Callus Treatment",price:22},{name:"Rawatan Pantang Bersalin",price:65},{name:"Ratus Temanten",price:55},
 ];
 const PAYMENT_METHODS = ["Tunai / Cash","Pindahan Bank / Bank Transfer","QR Pay (BIBD / BAIDURI)","Kad Debit / Debit Card"];
-const EMPTY_CUSTOMER = {name:"",phone:"",date:todayBNT(),payment:PAYMENT_METHODS[0],status:"PAID",remarks:"",therapist:""};
+const EMPTY_CUSTOMER = {name:"",phone:"",date:todayBNT(),payment:PAYMENT_METHODS[0],remarks:""};
 /* ══════ THEMES ══════ */
 const LIGHT = {
   dark:false, pageBg:"linear-gradient(135deg,#fdf8f0,#f5ede0)", cardBg:"#fff", cardBorder:"#fde68a",
@@ -170,10 +169,7 @@ export default function SamliaInvoice() {
   const [custSuggest,setCustSuggest] = useState([]);
   const [showCustSuggest,setShowCustSuggest] = useState(false);
 
-  /* ── Terapis (therapist) ── */
-  const [therapists,setTherapists] = useState([]);
-  const [showTherapists,setShowTherapists] = useState(false);
-  const [newThpName,setNewThpName] = useState("");
+
 
   const printRef = useRef(null);
   const draftTimer = useRef(null);
@@ -224,6 +220,10 @@ export default function SamliaInvoice() {
         const invList = invSnap.docs.map(d=>({...d.data(),id:Number(d.id)||d.data().id}));
         invList.sort((a,b)=>b.id-a.id);
         setHistory(invList);
+
+        // 5. Pelanggan — load dari Firebase
+        const cusSnap = await getDocs(query(collection(db, COL_CUS), orderBy("name")));
+        setCustomers(cusSnap.docs.map(d=>({id:d.id,...d.data()})));
 
         clearTimeout(timeoutId);
       } catch(err) {
@@ -288,8 +288,15 @@ export default function SamliaInvoice() {
   };
 
   const selectCustSuggest = (c) => {
-    setCustomer(p=>({...p,name:c.name,phone:c.phone||p.phone}));
+    // Auto-isi semua info pelanggan dari database
+    setCustomer(p=>({
+      ...p,
+      name: c.name,
+      phone: c.phone || p.phone,
+      // Remarks tidak diisi semula (mungkin berbeza setiap kunjungan)
+    }));
     setShowCustSuggest(false);
+    toast(`👤 ${c.name} — ${c.visitCount||0} kunjungan sebelum ini`, "info", 3000);
   };
 
   /* ── Upsert customer ke Firestore ── */
@@ -322,25 +329,6 @@ export default function SamliaInvoice() {
     await deleteDoc(doc(db, COL_CUS, id));
     setCustomers(p=>p.filter(c=>c.id!==id));
     toast("Rekod pelanggan dipadam.","warn");
-  };
-
-  /* ── Therapist CRUD ── */
-  const addTherapist = async() => {
-    if(!newThpName.trim())return;
-    const colors=["#92400e","#1d4ed8","#059669","#7c3aed","#e11d48","#0891b2","#b45309","#374151"];
-    const color=colors[therapists.length%colors.length];
-    const data={name:newThpName.trim(),color};
-    const ref=await addDoc(collection(db, COL_THP), data);
-    setTherapists(p=>[...p,{id:ref.id,...data}]);
-    setNewThpName("");
-    toast(`Terapis "${data.name}" ditambah!`,"success");
-  };
-
-  const deleteTherapist = async(id,name) => {
-    if(!window.confirm(`Padam terapis "${name}"?`))return;
-    await deleteDoc(doc(db, COL_THP, id));
-    setTherapists(p=>p.filter(t=>t.id!==id));
-    toast("Terapis dipadam.","warn");
   };
 
 
@@ -602,14 +590,27 @@ export default function SamliaInvoice() {
                     <div style={{position:"absolute",top:"100%",left:0,right:0,background:T.cardBg,border:`1.5px solid ${T.accentMid}`,borderRadius:10,zIndex:100,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",overflow:"hidden"}}>
                       {custSuggest.map(c=>(
                         <div key={c.id} onClick={()=>selectCustSuggest(c)}
-                          style={{padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${T.divider}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                          style={{padding:"12px 14px",cursor:"pointer",borderBottom:`1px solid ${T.divider}`}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.accentSoft}
                           onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>👤 {c.name}</div>
-                            <div style={{fontSize:11,color:T.textSecondary}}>{c.phone||"–"} · {c.visitCount||0} kunjungan</div>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>👤 {c.name}</div>
+                              <div style={{fontSize:11,color:T.textSecondary,marginTop:2}}>
+                                📞 {c.phone||"–"}
+                              </div>
+                              <div style={{fontSize:11,color:T.textSecondary,marginTop:1}}>
+                                🗓️ {c.visitCount||0}x kunjungan · Terakhir: {c.lastVisit||"–"}
+                              </div>
+                            </div>
+                            <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                              <div style={{fontSize:12,color:T.accent,fontWeight:700}}>{formatBND(c.totalSpent||0)}</div>
+                              <div style={{fontSize:10,color:T.textSecondary,marginTop:2}}>jumlah total</div>
+                            </div>
                           </div>
-                          <div style={{fontSize:12,color:T.accent,fontWeight:700}}>{formatBND(c.totalSpent||0)}</div>
+                          <div style={{marginTop:6,padding:"4px 8px",background:T.accentSoft,borderRadius:6,fontSize:11,color:T.accent,fontWeight:600,display:"inline-block"}}>
+                            ✓ Klik untuk isi semula info
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -624,30 +625,10 @@ export default function SamliaInvoice() {
                 <select value={customer.payment} onChange={e=>setCustomer({...customer,payment:e.target.value})} style={inp}>
                   {PAYMENT_METHODS.map(m=><option key={m}>{m}</option>)}
                 </select>
-                <label style={lbl}>Status Pembayaran</label>
-                <div style={{display:"flex",gap:10}}>
-                  {["PAID","UNPAID"].map(s=>(
-                    <button key={s} onClick={()=>setCustomer({...customer,status:s})}
-                      style={{flex:1,padding:"8px 0",borderRadius:8,border:"2px solid",cursor:"pointer",fontWeight:700,fontSize:13,transition:"all .2s",borderColor:s==="PAID"?"#059669":"#e11d48",background:customer.status===s?(s==="PAID"?"#059669":"#e11d48"):T.cardBg,color:customer.status===s?"white":(s==="PAID"?"#059669":"#e11d48")}}>
-                      {s==="PAID"?"✅ LUNAS / PAID":"⏳ BELUM / UNPAID"}
-                    </button>
-                  ))}
-                </div>
+
                 <label style={lbl}>Catatan / Remarks (Opsional)</label>
                 <textarea value={customer.remarks} onChange={e=>setCustomer({...customer,remarks:e.target.value})} placeholder="Catatan tambahan..." rows={2} style={{...inp,resize:"vertical"}}/>
-                <label style={lbl}>Terapis / Therapist</label>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {therapists.map(t=>(
-                    <button key={t.id} onClick={()=>setCustomer(p=>({...p,therapist:t.name}))}
-                      style={{padding:"7px 14px",borderRadius:8,border:`2px solid ${t.color}`,cursor:"pointer",fontWeight:700,fontSize:12,transition:"all .2s",background:customer.therapist===t.name?t.color:T.cardBg,color:customer.therapist===t.name?"white":t.color}}>
-                      {t.name}
-                    </button>
-                  ))}
-                  <button onClick={()=>setShowTherapists(true)}
-                    style={{padding:"7px 14px",borderRadius:8,border:`1.5px dashed ${T.textMuted}`,cursor:"pointer",fontSize:12,color:T.textMuted,background:"transparent"}}>
-                    + Urus Terapis
-                  </button>
-                </div>
+
               </div>
             </div>
 
@@ -711,6 +692,26 @@ export default function SamliaInvoice() {
                     );
                   })}
                 </div>
+
+                {/* ── Jumlah perkhidmatan dipilih ── */}
+                <div style={{marginTop:8,paddingTop:10,borderTop:`2px dashed ${T.divider}`}}>
+                  {totalItemDisc>0&&(
+                    <>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:T.textSecondary,marginBottom:3}}>
+                        <span>Subtotal ({rows.reduce((s,r)=>s+r.qty,0)} item)</span>
+                        <span style={{textDecoration:"line-through"}}>{formatBND(subtotal)}</span>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#e11d48",marginBottom:3}}>
+                        <span>🏷️ Jumlah diskaun item</span>
+                        <span>-{formatBND(totalItemDisc)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+                    <span style={{fontSize:13,fontWeight:700,color:T.textSecondary}}>Jumlah ({rows.reduce((s,r)=>s+r.qty,0)} item)</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:800,color:T.accent}}>{formatBND(subtotalAfterItemDisc)}</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -734,6 +735,7 @@ export default function SamliaInvoice() {
             </div>
 
             {formErrors.rows&&<div style={{padding:"10px 14px",background:T.badgeUnpaidBg,border:"1.5px solid #e11d48",borderRadius:10,fontSize:12,color:"#e11d48",fontWeight:600}}>⚠️ {formErrors.rows}</div>}
+
 
             {/* ── Action buttons: 2×2 grid ── */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -811,7 +813,6 @@ export default function SamliaInvoice() {
                 <div style={{fontSize:13,fontWeight:700,color:"#78350f"}}>{invoiceNo}</div>
                 <div style={{fontSize:12,color:"#a16207"}}>{formatDateDisplay(customer.date)}</div>
                 <div style={{fontSize:11,color:"#92400e",marginTop:2}}>{customer.payment}</div>
-                {customer.therapist&&<div style={{fontSize:11,color:"#92400e",marginTop:2}}>👩‍⚕️ {customer.therapist}</div>}
               </div>
             </div>
             <div style={{background:"#fef9ee",border:"1px solid #fde68a",borderRadius:10,padding:"12px 16px",marginBottom:20}}>
@@ -850,11 +851,6 @@ export default function SamliaInvoice() {
                 <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,color:"#92400e"}}>JUMLAH / TOTAL DUE</span>
                 <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#92400e"}}>{formatBND(total)}</span>
               </div>
-            </div>
-            <div style={{textAlign:"center",margin:"20px 0 14px"}}>
-              <span style={{display:"inline-block",padding:"8px 28px",borderRadius:99,fontWeight:800,fontSize:14,letterSpacing:2,textTransform:"uppercase",background:customer.status==="PAID"?"#dcfce7":"#fee2e2",color:customer.status==="PAID"?"#059669":"#e11d48",border:`2px solid ${customer.status==="PAID"?"#059669":"#e11d48"}`}}>
-                {customer.status==="PAID"?"✅ LUNAS / PAID":"⏳ BELUM LUNAS / UNPAID"}
-              </span>
             </div>
             <div style={{height:2,background:"linear-gradient(90deg,transparent,#d97706,transparent)",margin:"14px 0"}}/>
             <div style={{textAlign:"center"}}>
@@ -911,11 +907,6 @@ export default function SamliaInvoice() {
                       <div style={{height:1,background:T.accentMid,margin:"8px 0"}}/>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:700,color:T.accent}}>JUMLAH</span><span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,color:T.accent}}>{formatBND(historyView.total)}</span></div>
                     </div>
-                    <div style={{textAlign:"center",marginBottom:20}}>
-                      <span style={{display:"inline-block",padding:"7px 24px",borderRadius:99,fontWeight:800,fontSize:13,letterSpacing:2,background:historyView.customer.status==="PAID"?T.badgeLunasBg:T.badgeUnpaidBg,color:historyView.customer.status==="PAID"?T.badgeLunasColor:T.badgeUnpaidColor,border:`2px solid ${historyView.customer.status==="PAID"?T.badgeLunasColor:T.badgeUnpaidColor}`}}>
-                        {historyView.customer.status==="PAID"?"✅ LUNAS / PAID":"⏳ BELUM LUNAS / UNPAID"}
-                      </span>
-                    </div>
                     <div style={{display:"flex",gap:10}}>
                       <button onClick={()=>restoreFromHistory(historyView)} style={{flex:1,padding:"10px 0",background:"#1d4ed8",color:"white",border:"none",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:13}}>🔄 Muat Semula ke Form</button>
                       <button onClick={()=>{deleteHistory(historyView.id);setHistoryView(null);}} style={{padding:"10px 18px",background:T.badgeUnpaidBg,border:"1.5px solid #e11d48",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:13,color:"#e11d48"}}>🗑️ Padam</button>
@@ -939,7 +930,7 @@ export default function SamliaInvoice() {
                               <div style={{flex:1,minWidth:0}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                                   <span style={{fontSize:13,fontWeight:700,color:T.accent}}>{h.invoiceNo}</span>
-                                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,fontWeight:700,background:h.customer.status==="PAID"?T.badgeLunasBg:T.badgeUnpaidBg,color:h.customer.status==="PAID"?T.badgeLunasColor:T.badgeUnpaidColor}}>{h.customer.status==="PAID"?"LUNAS":"BELUM"}</span>
+                                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,fontWeight:700,background:T.badgeLunasBg,color:T.badgeLunasColor}}>LUNAS</span>
                                 </div>
                                 <div style={{fontSize:13,fontWeight:600,color:T.textPrimary}}>👤 {h.customer.name||"–"}</div>
                                 <div style={{fontSize:11,color:T.textSecondary,marginTop:2}}>📅 {formatDateDisplay(h.customer.date)} · 🕐 {h.savedAt}</div>
@@ -959,7 +950,7 @@ export default function SamliaInvoice() {
                     )}
                     {history.length>0&&(
                       <div style={{marginTop:20,paddingTop:16,borderTop:`1px dashed ${T.divider}`,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                        {[["📋 Jumlah Invois",history.length],["✅ Lunas",history.filter(h=>h.customer.status==="PAID").length],["💰 Jumlah Terima",formatBND(history.filter(h=>h.customer.status==="PAID").reduce((s,h)=>s+h.total,0))]].map(([l,v])=>(
+                        {[["📋 Jumlah Invois",history.length],["💰 Jumlah Terima",formatBND(history.reduce((s,h)=>s+h.total,0))],["📈 Purata",formatBND(history.length>0?history.reduce((s,h)=>s+h.total,0)/history.length:0)]].map(([l,v])=>(
                           <div key={l} style={{background:T.statBg,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"10px",textAlign:"center"}}>
                             <div style={{fontSize:10,color:T.textSecondary,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div>
                             <div style={{fontSize:15,fontWeight:700,color:T.accent,marginTop:4}}>{v}</div>
@@ -1091,43 +1082,8 @@ export default function SamliaInvoice() {
           </div>
         )}
 
-        {/* ════ TERAPIS MODAL ════ */}
-        {showTherapists&&(
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setShowTherapists(false);}}>
-            <div style={{background:T.modalBg,borderRadius:18,width:"100%",maxWidth:460,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
-              <div style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",padding:"18px 24px",borderRadius:"18px 18px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"white",margin:0}}>👩‍⚕️ Urus Terapis</h3>
-                  <p style={{fontSize:11,color:"#ddd6fe",margin:"2px 0 0"}}>MANAGE THERAPISTS · {therapists.length} terapis</p>
-                </div>
-                <button onClick={()=>setShowTherapists(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,width:34,height:34,cursor:"pointer",color:"white",fontSize:18,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-              </div>
-              <div style={{padding:24}}>
-                <div style={{background:T.statBg,border:`1.5px dashed #7c3aed`,borderRadius:12,padding:16,marginBottom:20}}>
-                  <p style={{fontSize:12,fontWeight:700,color:T.textSecondary,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>+ Tambah Terapis Baru</p>
-                  <div style={{display:"flex",gap:8}}>
-                    <input value={newThpName} onChange={e=>setNewThpName(e.target.value)} placeholder="Nama terapis..." onKeyDown={e=>e.key==="Enter"&&addTherapist()}
-                      style={{flex:1,padding:"9px 12px",border:`1.5px solid ${T.inputBorder}`,borderRadius:8,fontSize:13,color:T.inputColor,background:T.inputBg,outline:"none"}}/>
-                    <button onClick={addTherapist} style={{padding:"9px 18px",background:"#7c3aed",color:"white",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13}}>+ Tambah</button>
-                  </div>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {therapists.map(t=>(
-                    <div key={t.id} style={{background:T.cardBg,border:`1.5px solid ${T.cardBorder}`,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
-                      <div style={{width:14,height:14,borderRadius:"50%",background:t.color,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:14,fontWeight:700,color:T.textPrimary}}>{t.name}</span>
-                      <span style={{fontSize:12,color:T.textSecondary}}>{history.filter(h=>h.customer?.therapist===t.name).length} invois</span>
-                      {t.name!=="Umum"&&<button onClick={()=>deleteTherapist(t.id,t.name)} style={{padding:"4px 10px",background:T.badgeUnpaidBg,border:"1.5px solid #e11d48",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:700,color:"#e11d48"}}>🗑️</button>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
                 {/* ════ DASHBOARD MODAL ════ */}
-        {showDashboard&&<DashboardModal history={history} formatBND={formatBND} T={T} therapists={therapists} onClose={()=>setShowDashboard(false)}/>}
+        {showDashboard&&<DashboardModal history={history} formatBND={formatBND} T={T} onClose={()=>setShowDashboard(false)}/>}
 
         {/* ════ TOAST ════ */}
         <ToastContainer toasts={toasts} onRemove={removeToast}/>
@@ -1139,157 +1095,136 @@ export default function SamliaInvoice() {
 }
 
 /* ══════ DASHBOARD ══════ */
-function DashboardModal({history,formatBND,T,onClose,therapists}) {
+function DashboardModal({history,formatBND,T,onClose}) {
   const bntNow = ()=>new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Brunei"}));
-  const nowBNT = bntNow();
-  const thisYear = nowBNT.getFullYear();
+  const thisYear = bntNow().getFullYear();
 
-  // Build list of available years from history
   const availYears = useMemo(()=>{
     const yrs = new Set(history.map(h=>new Date(h.id).getFullYear()));
     yrs.add(thisYear);
     return Array.from(yrs).sort((a,b)=>b-a);
   },[history,thisYear]);
 
-  // Filter mode: "quick" | "month" | "day"
-  const [filterMode, setFilterMode] = useState("quick");
-  const [quickPeriod, setQuickPeriod] = useState("today");
+  // "ringkas" = cepat | "custom" = pilih sendiri
+  const [viewMode, setViewMode] = useState("ringkas");
+  const [quickPeriod, setQuickPeriod] = useState("month");
   const [selYear, setSelYear] = useState(thisYear);
-  const [selMonth, setSelMonth] = useState(null); // 0-11, null = semua bulan
-  const [selDay, setSelDay] = useState(null);     // 0=Ahad..6=Sabtu, null = semua hari
-  const [thpFilter, setThpFilter] = useState("all");
+  const [selMonth, setSelMonth] = useState(null);
+  const [selDay, setSelDay] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview"); // overview | services | transactions
 
-  const MONTHS = ["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
+  const MONTHS = ["Jan","Feb","Mac","Apr","Mei","Jun","Jul","Ogo","Sep","Okt","Nov","Dis"];
+  const MONTHS_FULL = ["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
   const DAYS = [{v:1,l:"Isnin"},{v:2,l:"Selasa"},{v:3,l:"Rabu"},{v:4,l:"Khamis"},{v:5,l:"Jumaat"},{v:6,l:"Sabtu"},{v:0,l:"Ahad"}];
-  const QUICK_PERIODS = [["today","Hari Ini"],["week","Minggu Ini"],["month","Bulan Ini"],["year","Tahun Ini"],["all","Semua"]];
+  const QUICK = [["today","Hari Ini"],["week","Minggu Ini"],["month","Bulan Ini"],["year","Tahun Ini"],["all","Semua"]];
 
   const filtered = useMemo(()=>{
+    const now = bntNow();
     let list = history;
 
-    if (filterMode === "quick") {
-      const now = bntNow();
+    if (viewMode === "ringkas") {
       const startOf = u => {
         const d = new Date(now);
-        if (u==="today"){d.setHours(0,0,0,0);return d;}
-        if (u==="week"){d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d;}
-        if (u==="month"){d.setDate(1);d.setHours(0,0,0,0);return d;}
-        if (u==="year"){d.setMonth(0,1);d.setHours(0,0,0,0);return d;}
+        if(u==="today"){d.setHours(0,0,0,0);return d;}
+        if(u==="week"){d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d;}
+        if(u==="month"){d.setDate(1);d.setHours(0,0,0,0);return d;}
+        if(u==="year"){d.setMonth(0,1);d.setHours(0,0,0,0);return d;}
         return new Date(0);
       };
-      const from = startOf(quickPeriod);
-      list = list.filter(h => new Date(h.id) >= from);
-    } else if (filterMode === "month") {
-      list = list.filter(h => {
+      list = list.filter(h=>new Date(h.id)>=startOf(quickPeriod));
+    } else {
+      list = list.filter(h=>{
         const d = new Date(h.id);
-        const yearMatch = d.getFullYear() === selYear;
-        const monthMatch = selMonth === null || d.getMonth() === selMonth;
-        return yearMatch && monthMatch;
-      });
-    } else if (filterMode === "day") {
-      list = list.filter(h => {
-        const d = new Date(h.id);
-        const yearMatch = d.getFullYear() === selYear;
-        const monthMatch = selMonth === null || d.getMonth() === selMonth;
-        const dayMatch = selDay === null || d.getDay() === selDay;
-        return yearMatch && monthMatch && dayMatch;
+        const yOk = d.getFullYear()===selYear;
+        const mOk = selMonth===null || d.getMonth()===selMonth;
+        const dOk = selDay===null || d.getDay()===selDay;
+        return yOk && mOk && dOk;
       });
     }
-
-    // Therapist filter
-    if (thpFilter !== "all") {
-      list = list.filter(h => h.customer?.therapist === thpFilter);
-    }
-
     return list;
-  },[history, filterMode, quickPeriod, selYear, selMonth, selDay, thpFilter]);
+  },[history,viewMode,quickPeriod,selYear,selMonth,selDay]);
 
-  const paid = filtered.filter(h=>h.customer.status==="PAID");
-  const unp  = filtered.filter(h=>h.customer.status!=="PAID");
-  const rev  = paid.reduce((s,h)=>s+h.total,0);
-  const unrev= unp.reduce((s,h)=>s+h.total,0);
-  const avg  = paid.length>0 ? rev/paid.length : 0;
+  const rev = filtered.reduce((s,h)=>s+h.total,0);
+  const avg = filtered.length>0 ? rev/filtered.length : 0;
 
+  // Top services
   const svcMap={};
   filtered.forEach(h=>h.rows.forEach(r=>{svcMap[r.name]=(svcMap[r.name]||0)+(r.lineNet??r.price*r.qty);}));
   const top = Object.entries(svcMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  // Bar chart — ikut mode
-  const chartData = useMemo(()=>{
-    if (filterMode==="month" && selMonth===null) {
-      // Tunjuk 12 bulan dalam tahun yang dipilih
+  // Chart: 12 bulan (custom tahun) or 7 hari (ringkas)
+  const chartBars = useMemo(()=>{
+    if (viewMode==="custom" && selMonth===null && selDay===null) {
       return MONTHS.map((label,mi)=>{
         const rv = history.filter(h=>{
           const d=new Date(h.id);
-          return d.getFullYear()===selYear && d.getMonth()===mi && h.customer.status==="PAID"
-            && (thpFilter==="all"||h.customer?.therapist===thpFilter);
+          return d.getFullYear()===selYear && d.getMonth()===mi
+            ;
         }).reduce((s,h)=>s+h.total,0);
-        return {label:label.slice(0,3), rev:rv};
-      });
-    } else if (filterMode==="day") {
-      // Tunjuk 7 hari
-      return DAYS.map(({v,l})=>{
-        const rv = filtered.filter(h=>new Date(h.id).getDay()===v && h.customer.status==="PAID").reduce((s,h)=>s+h.total,0);
-        return {label:l.slice(0,3), rev:rv};
-      });
-    } else {
-      // Default: 7 hari terakhir
-      return Array.from({length:7},(_,i)=>{
-        const d=bntNow(); d.setDate(d.getDate()-(6-i)); d.setHours(0,0,0,0);
-        const nx=new Date(d); nx.setDate(nx.getDate()+1);
-        const rv=history.filter(h=>{
-          const hd=new Date(h.id);
-          return hd>=d&&hd<nx&&h.customer.status==="PAID"
-            &&(thpFilter==="all"||h.customer?.therapist===thpFilter);
-        }).reduce((s,h)=>s+h.total,0);
-        return {label:["Ahd","Isn","Sel","Rab","Kha","Jum","Sab"][d.getDay()], rev:rv};
+        return {label, rv};
       });
     }
-  },[filtered, filterMode, selMonth, selYear, thpFilter, history]);
-  const maxR = Math.max(...chartData.map(d=>d.rev),1);
+    if (viewMode==="custom" && selDay===null && selMonth!==null) {
+      // Hari dalam bulan yg dipilih — group by day of week
+      return DAYS.map(({v,l})=>{
+        const rv = filtered.filter(h=>new Date(h.id).getDay()===v).reduce((s,h)=>s+h.total,0);
+        return {label:l.slice(0,3), rv};
+      });
+    }
+    // Default: 7 hari terakhir
+    return Array.from({length:7},(_,i)=>{
+      const d=bntNow(); d.setDate(d.getDate()-(6-i)); d.setHours(0,0,0,0);
+      const nx=new Date(d); nx.setDate(nx.getDate()+1);
+      const rv=history.filter(h=>{
+        const hd=new Date(h.id);
+        return hd>=d&&hd<nx;
+      }).reduce((s,h)=>s+h.total,0);
+      return {label:["Ahd","Isn","Sel","Rab","Kha","Jum","Sab"][d.getDay()], rv};
+    });
+  },[filtered,viewMode,selYear,selMonth,selDay,history]);
+  const maxR = Math.max(...chartBars.map(d=>d.rv),1);
 
-  const chartTitle = filterMode==="month" && selMonth===null
-    ? `📅 Hasil Bulanan ${selYear}`
-    : filterMode==="day"
-    ? `📅 Hasil Mengikut Hari${selMonth!==null?` (${MONTHS[selMonth]})`:""}` 
-    : "📅 Hasil 7 Hari Terakhir (Lunas)";
+  // Period label for header
+  const periodLabel = viewMode==="ringkas"
+    ? QUICK.find(([v])=>v===quickPeriod)?.[1]||""
+    : `${selMonth!==null?MONTHS_FULL[selMonth]:"Semua Bulan"} ${selYear}${selDay!==null?" · "+DAYS.find(d=>d.v===selDay)?.l:""}`;
 
-  // Label ringkasan filter aktif
-  const filterLabel = filterMode==="quick"
-    ? QUICK_PERIODS.find(([v])=>v===quickPeriod)?.[1]||""
-    : filterMode==="month"
-    ? `${selMonth!==null?MONTHS[selMonth]:"Semua Bulan"} ${selYear}`
-    : `Hari: ${selDay!==null?DAYS.find(d=>d.v===selDay)?.l:"Semua"} · ${selMonth!==null?MONTHS[selMonth]:"Semua Bulan"} ${selYear}`;
+  const chartLabel = viewMode==="custom" && selMonth===null && selDay===null
+    ? `Hasil Bulanan ${selYear}` : "Hasil 7 Hari Terakhir";
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:T.modalBg,borderRadius:18,width:"100%",maxWidth:720,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
-        {/* Header */}
-        <div style={{background:"linear-gradient(135deg,#1d4ed8,#6366f1)",padding:"18px 24px",borderRadius:"18px 18px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
-          <div>
-            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"white",margin:0}}>📊 Dashboard Ringkasan</h3>
-            <p style={{fontSize:11,color:"#c7d2fe",margin:"2px 0 0"}}>SALES SUMMARY · {filterLabel}</p>
-          </div>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,width:34,height:34,cursor:"pointer",color:"white",fontSize:18,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-        </div>
+      <div style={{background:T.modalBg,borderRadius:18,width:"100%",maxWidth:680,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
 
-        <div style={{padding:24}}>
-          {/* ── Mode tabs ── */}
-          <div style={{display:"flex",gap:6,marginBottom:14,background:T.statBg,borderRadius:10,padding:4}}>
-            {[["quick","⚡ Pantas"],["month","📅 Bulan/Tahun"],["day","📆 Hari"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setFilterMode(v)}
-                style={{flex:1,padding:"7px 0",borderRadius:8,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,transition:"all .2s",
-                  background:filterMode===v?"#1d4ed8":T.statBg, color:filterMode===v?"white":T.textSecondary}}>
+        {/* ── Header ── */}
+        <div style={{background:"linear-gradient(135deg,#1d4ed8,#6366f1)",padding:"16px 20px",borderRadius:"18px 18px 0 0",position:"sticky",top:0,zIndex:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div>
+              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"white",margin:0}}>📊 Dashboard</h3>
+            </div>
+            <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",color:"white",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+
+          {/* ── Tab: Ringkas / Custom ── */}
+          <div style={{display:"flex",gap:6,background:"rgba(0,0,0,0.2)",borderRadius:10,padding:3}}>
+            {[["ringkas","⚡ Ringkas"],["custom","🗓️ Pilih Tarikh"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setViewMode(v)}
+                style={{flex:1,padding:"6px 0",borderRadius:8,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,
+                  background:viewMode===v?"white":"transparent",color:viewMode===v?"#1d4ed8":"rgba(255,255,255,0.8)",transition:"all .2s"}}>
                 {l}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* ── Quick filter ── */}
-          {filterMode==="quick"&&(
-            <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-              {QUICK_PERIODS.map(([v,l])=>(
+        <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:16}}>
+
+          {/* ── Filter Ringkas ── */}
+          {viewMode==="ringkas"&&(
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {QUICK.map(([v,l])=>(
                 <button key={v} onClick={()=>setQuickPeriod(v)}
-                  style={{padding:"7px 16px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:12,
+                  style={{padding:"6px 14px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:12,
                     background:quickPeriod===v?"#1d4ed8":T.cardBg,color:quickPeriod===v?"white":"#1d4ed8"}}>
                   {l}
                 </button>
@@ -1297,36 +1232,50 @@ function DashboardModal({history,formatBND,T,onClose,therapists}) {
             </div>
           )}
 
-          {/* ── Month/Year filter ── */}
-          {(filterMode==="month"||filterMode==="day")&&(
-            <div style={{marginBottom:16}}>
-              {/* Year selector */}
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:50}}>Tahun:</span>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {/* ── Filter Custom ── */}
+          {viewMode==="custom"&&(
+            <div style={{background:T.statBg,borderRadius:12,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+              {/* Tahun */}
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:44}}>Tahun</span>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                   {availYears.map(y=>(
                     <button key={y} onClick={()=>setSelYear(y)}
-                      style={{padding:"5px 14px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:12,
+                      style={{padding:"4px 12px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:12,
                         background:selYear===y?"#1d4ed8":T.cardBg,color:selYear===y?"white":"#1d4ed8"}}>
                       {y}
                     </button>
                   ))}
                 </div>
               </div>
-              {/* Month selector */}
+              {/* Bulan */}
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:50}}>Bulan:</span>
+                <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:44}}>Bulan</span>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   <button onClick={()=>setSelMonth(null)}
                     style={{padding:"4px 10px",borderRadius:99,border:`2px solid ${T.accentMid}`,cursor:"pointer",fontWeight:700,fontSize:11,
-                      background:selMonth===null?T.accentMid:T.cardBg,color:selMonth===null?"white":T.accentMid}}>
-                    Semua
-                  </button>
+                      background:selMonth===null?T.accentMid:T.cardBg,color:selMonth===null?"white":T.accentMid}}>Semua</button>
                   {MONTHS.map((m,mi)=>(
                     <button key={mi} onClick={()=>setSelMonth(mi)}
-                      style={{padding:"4px 10px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:11,
+                      style={{padding:"4px 9px",borderRadius:99,border:"2px solid #1d4ed8",cursor:"pointer",fontWeight:700,fontSize:11,
                         background:selMonth===mi?"#1d4ed8":T.cardBg,color:selMonth===mi?"white":"#1d4ed8"}}>
-                      {m.slice(0,3)}
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Hari */}
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:44}}>Hari</span>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  <button onClick={()=>setSelDay(null)}
+                    style={{padding:"4px 10px",borderRadius:99,border:`2px solid ${T.accentMid}`,cursor:"pointer",fontWeight:700,fontSize:11,
+                      background:selDay===null?T.accentMid:T.cardBg,color:selDay===null?"white":T.accentMid}}>Semua</button>
+                  {DAYS.map(({v,l})=>(
+                    <button key={v} onClick={()=>setSelDay(selDay===v?null:v)}
+                      style={{padding:"4px 9px",borderRadius:99,border:"2px solid #059669",cursor:"pointer",fontWeight:700,fontSize:11,
+                        background:selDay===v?"#059669":T.cardBg,color:selDay===v?"white":"#059669"}}>
+                      {l.slice(0,3)}
                     </button>
                   ))}
                 </div>
@@ -1334,74 +1283,69 @@ function DashboardModal({history,formatBND,T,onClose,therapists}) {
             </div>
           )}
 
-          {/* ── Day filter ── */}
-          {filterMode==="day"&&(
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-              <span style={{fontSize:12,fontWeight:700,color:T.textSecondary,minWidth:50}}>Hari:</span>
-              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                <button onClick={()=>setSelDay(null)}
-                  style={{padding:"4px 10px",borderRadius:99,border:`2px solid ${T.accentMid}`,cursor:"pointer",fontWeight:700,fontSize:11,
-                    background:selDay===null?T.accentMid:T.cardBg,color:selDay===null?"white":T.accentMid}}>
-                  Semua
-                </button>
-                {DAYS.map(({v,l})=>(
-                  <button key={v} onClick={()=>setSelDay(v)}
-                    style={{padding:"4px 10px",borderRadius:99,border:"2px solid #059669",cursor:"pointer",fontWeight:700,fontSize:11,
-                      background:selDay===v?"#059669":T.cardBg,color:selDay===v?"white":"#059669"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Therapist filter ── */}
-          {therapists&&therapists.length>1&&(
-            <div style={{display:"flex",gap:6,marginBottom:20,flexWrap:"wrap"}}>
-              <button onClick={()=>setThpFilter("all")} style={{padding:"5px 14px",borderRadius:99,border:`2px solid ${T.textMuted}`,cursor:"pointer",fontWeight:700,fontSize:11,background:thpFilter==="all"?T.textMuted:T.cardBg,color:thpFilter==="all"?"white":T.textMuted}}>Semua Terapis</button>
-              {therapists.map(t=><button key={t.id} onClick={()=>setThpFilter(t.name)} style={{padding:"5px 14px",borderRadius:99,border:`2px solid ${t.color}`,cursor:"pointer",fontWeight:700,fontSize:11,background:thpFilter===t.name?t.color:T.cardBg,color:thpFilter===t.name?"white":t.color}}>{t.name}</button>)}
-            </div>
-          )}
-
           {/* ── KPI Cards ── */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:20}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
             {[
-              {l:"💰 Jumlah Terima (Lunas)",v:formatBND(rev),c:"#059669",bg:T.badgeLunasBg},
-              {l:"⏳ Belum Dibayar",v:formatBND(unrev),c:"#e11d48",bg:T.badgeUnpaidBg},
-              {l:"📋 Total Invois",v:filtered.length,c:"#3b82f6",bg:T.dark?"#1e3a5f":"#eff6ff"},
-              {l:"📈 Purata Per Invois",v:formatBND(avg),c:"#7c3aed",bg:T.dark?"#2e1065":"#f5f3ff"},
-            ].map(({l,v,c,bg})=>(
-              <div key={l} style={{background:bg,borderRadius:14,padding:"16px 18px",border:`1.5px solid ${c}44`}}>
-                <div style={{fontSize:11,color:T.textSecondary,marginBottom:6}}>{l}</div>
-                <div style={{fontSize:20,fontWeight:800,color:c,fontFamily:"'Cormorant Garamond',serif"}}>{v}</div>
+              {icon:"💰",label:"Jumlah Hasil",value:formatBND(rev),color:"#059669",bg:T.badgeLunasBg},
+              {icon:"📋",label:"Invois",value:filtered.length,color:"#1d4ed8",bg:T.dark?"#1e3a5f":"#eff6ff"},
+              {icon:"📈",label:"Purata",value:formatBND(avg),color:"#7c3aed",bg:T.dark?"#2e1065":"#f5f3ff"},
+            ].map(({icon,label,value,color,bg})=>(
+              <div key={label} style={{background:bg,borderRadius:12,padding:"12px 10px",border:`1.5px solid ${color}33`,textAlign:"center"}}>
+                <div style={{fontSize:18,marginBottom:4}}>{icon}</div>
+                <div style={{fontSize:18,fontWeight:800,color,fontFamily:"'Cormorant Garamond',serif",lineHeight:1}}>{value}</div>
+                <div style={{fontSize:10,color:T.textSecondary,marginTop:4,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5}}>{label}</div>
               </div>
             ))}
           </div>
 
-          {/* ── Bar Chart ── */}
-          <div style={{background:T.chartBg,borderRadius:14,padding:18,marginBottom:20,border:`1px solid ${T.cardBorder}`}}>
-            <p style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>{chartTitle}</p>
-            <div style={{display:"flex",alignItems:"flex-end",gap:4,height:90,overflowX:"auto"}}>
-              {chartData.map(({label,rev:rv})=>(
-                <div key={label} style={{flex:1,minWidth:28,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                  <div style={{fontSize:8,color:T.textSecondary,fontWeight:700,textAlign:"center"}}>{rv>0?formatBND(rv).replace("B$ ",""):""}</div>
-                  <div style={{width:"100%",background:rv>0?T.chartBar:T.chartBarEmpty,borderRadius:"3px 3px 0 0",
-                    height:`${Math.max((rv/maxR)*64,rv>0?6:3)}px`,transition:"height .4s ease"}}/>
-                  <div style={{fontSize:9,color:T.textSecondary,fontWeight:600,textAlign:"center"}}>{label}</div>
-                </div>
-              ))}
-            </div>
+          {/* ── Content Tabs ── */}
+          <div style={{display:"flex",gap:0,background:T.statBg,borderRadius:10,padding:3}}>
+            {[["overview","📊 Graf"],["services","🌸 Perkhidmatan"],["transactions","🧾 Transaksi"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setActiveTab(v)}
+                style={{flex:1,padding:"7px 4px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:700,fontSize:11,
+                  background:activeTab===v?T.cardBg:"transparent",color:activeTab===v?T.accent:T.textSecondary,
+                  boxShadow:activeTab===v?"0 1px 4px rgba(0,0,0,0.1)":"none",transition:"all .2s"}}>
+                {l}
+              </button>
+            ))}
           </div>
 
-          {/* ── Top Services ── */}
-          {top.length>0&&(
-            <div style={{background:T.cardBg,border:`1px solid ${T.cardBorder}`,borderRadius:14,padding:18,marginBottom:20}}>
-              <p style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>🌸 Perkhidmatan Terlaris</p>
+          {/* ── Tab: Graf ── */}
+          {activeTab==="overview"&&(
+            <div style={{background:T.chartBg,borderRadius:12,padding:16,border:`1px solid ${T.cardBorder}`}}>
+              <p style={{fontSize:11,fontWeight:700,color:T.accent,marginBottom:12,textTransform:"uppercase",letterSpacing:1}}>📅 {chartLabel}</p>
+              {filtered.length===0?(
+                <p style={{textAlign:"center",color:T.textSecondary,fontSize:13,padding:"20px 0",fontStyle:"italic"}}>Tiada data untuk tempoh ini</p>
+              ):(
+                <div style={{display:"flex",alignItems:"flex-end",gap:3,height:100}}>
+                  {chartBars.map(({label,rv})=>(
+                    <div key={label} style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                      {rv>0&&<div style={{fontSize:7,color:T.textSecondary,fontWeight:700,textAlign:"center",whiteSpace:"nowrap"}}>
+                        {formatBND(rv).replace("B$ ","")}
+                      </div>}
+                      <div style={{width:"80%",background:rv>0?T.chartBar:T.chartBarEmpty,borderRadius:"3px 3px 0 0",
+                        height:`${Math.max((rv/maxR)*72,rv>0?6:3)}px`,transition:"height .4s ease"}}/>
+                      <div style={{fontSize:9,color:T.textSecondary,fontWeight:600,textAlign:"center"}}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Tab: Perkhidmatan ── */}
+          {activeTab==="services"&&(
+            top.length===0
+            ?<p style={{textAlign:"center",color:T.textSecondary,fontSize:13,padding:"20px 0",fontStyle:"italic"}}>Tiada data</p>
+            :<div style={{background:T.cardBg,border:`1px solid ${T.cardBorder}`,borderRadius:12,padding:16}}>
               {top.map(([name,rv],i)=>(
-                <div key={name} style={{marginBottom:10}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                    <span style={{fontSize:12,color:T.textPrimary,fontWeight:600}}>#{i+1} {name}</span>
-                    <span style={{fontSize:12,color:T.accent,fontWeight:700}}>{formatBND(rv)}</span>
+                <div key={name} style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{width:22,height:22,borderRadius:"50%",background:`hsl(${35-i*6},75%,${T.dark?55:45}%)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"white",flexShrink:0}}>{i+1}</span>
+                      <span style={{fontSize:13,color:T.textPrimary,fontWeight:600}}>{name}</span>
+                    </div>
+                    <span style={{fontSize:13,color:T.accent,fontWeight:700,flexShrink:0}}>{formatBND(rv)}</span>
                   </div>
                   <div style={{height:6,background:T.chartBarEmpty,borderRadius:99,overflow:"hidden"}}>
                     <div style={{height:"100%",width:`${Math.round((rv/(top[0][1]||1))*100)}%`,background:`hsl(${35-i*6},75%,${T.dark?55:45}%)`,borderRadius:99,transition:"width .5s ease"}}/>
@@ -1411,29 +1355,28 @@ function DashboardModal({history,formatBND,T,onClose,therapists}) {
             </div>
           )}
 
-          {/* ── Recent Transactions ── */}
-          <div style={{background:T.cardBg,border:`1px solid ${T.cardBorder}`,borderRadius:14,padding:18}}>
-            <p style={{fontSize:12,fontWeight:700,color:T.accent,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>🧾 Transaksi Terbaru</p>
-            {filtered.length===0
-              ?<p style={{textAlign:"center",color:T.textSecondary,fontStyle:"italic",padding:"20px 0",fontSize:13}}>Tiada transaksi dalam tempoh ini</p>
-              :filtered.slice(0,8).map(h=>(
-                <div key={h.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.divider}`}}>
-                  <div>
+          {/* ── Tab: Transaksi ── */}
+          {activeTab==="transactions"&&(
+            filtered.length===0
+            ?<p style={{textAlign:"center",color:T.textSecondary,fontSize:13,padding:"20px 0",fontStyle:"italic"}}>Tiada transaksi dalam tempoh ini</p>
+            :<div style={{background:T.cardBg,border:`1px solid ${T.cardBorder}`,borderRadius:12,overflow:"hidden"}}>
+              {filtered.slice(0,15).map((h,idx)=>(
+                <div key={h.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 14px",borderBottom:idx<Math.min(filtered.length,15)-1?`1px solid ${T.divider}`:"none",background:idx%2===0?T.cardBg:T.rowAlt}}>
+                  <div style={{minWidth:0,flex:1}}>
                     <div style={{fontSize:12,fontWeight:700,color:T.accent}}>{h.invoiceNo}</div>
-                    <div style={{fontSize:11,color:T.textSecondary}}>{h.customer.name||"–"} · {h.rows.length} item{h.customer.therapist?` · ${h.customer.therapist}`:""}</div>
+                    <div style={{fontSize:11,color:T.textSecondary,marginTop:1}}>{h.customer.name||"–"}</div>
+                    <div style={{fontSize:10,color:T.textMuted,marginTop:1}}>{h.savedAt}</div>
                   </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>{formatBND(h.total)}</div>
-                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,fontWeight:700,
-                      background:h.customer.status==="PAID"?T.badgeLunasBg:T.badgeUnpaidBg,
-                      color:h.customer.status==="PAID"?T.badgeLunasColor:T.badgeUnpaidColor}}>
-                      {h.customer.status==="PAID"?"LUNAS":"BELUM"}
-                    </span>
+                  <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                    <div style={{fontSize:14,fontWeight:800,color:T.textPrimary}}>{formatBND(h.total)}</div>
+                    <div style={{fontSize:10,color:T.textSecondary}}>{h.rows.length} item</div>
                   </div>
                 </div>
-              ))
-            }
-          </div>
+              ))}
+              {filtered.length>15&&<div style={{textAlign:"center",padding:"10px",fontSize:12,color:T.textSecondary}}>+{filtered.length-15} transaksi lagi...</div>}
+            </div>
+          )}
+
         </div>
       </div>
     </div>
