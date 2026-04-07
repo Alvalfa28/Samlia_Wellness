@@ -287,16 +287,22 @@ export default function SamliaInvoice() {
     }
   };
 
-  const selectCustSuggest = (c) => {
+  const selectCustSuggest = (cust) => {
     // Auto-isi semua info pelanggan dari database
     setCustomer(p=>({
       ...p,
-      name: c.name,
-      phone: c.phone || p.phone,
-      // Remarks tidak diisi semula (mungkin berbeza setiap kunjungan)
+      name: cust.name,
+      phone: cust.phone || p.phone,
+      // date & payment kekal (mungkin berbeza setiap kunjungan)
+      // remarks dikosongkan semula
+      remarks: "",
     }));
     setShowCustSuggest(false);
-    toast(`👤 ${c.name} — ${c.visitCount||0} kunjungan sebelum ini`, "info", 3000);
+    setCustSuggest([]);
+    const visits = cust.visitCount || 0;
+    const spent  = cust.totalSpent || 0;
+    const last   = cust.lastVisit ? ` · Terakhir: ${cust.lastVisit}` : "";
+    toast(`👤 ${cust.name} dipilih — ${visits}x kunjungan · ${formatBND(spent)} total${last}`, "info", 4000);
   };
 
   /* ── Upsert customer ke Firestore ── */
@@ -587,29 +593,28 @@ export default function SamliaInvoice() {
                     placeholder="Nama penuh..."
                     style={{...inp,border:formErrors.name?`1.5px solid #e11d48`:`1.5px solid ${T.inputBorder}`}}/>
                   {showCustSuggest&&custSuggest.length>0&&(
-                    <div style={{position:"absolute",top:"100%",left:0,right:0,background:T.cardBg,border:`1.5px solid ${T.accentMid}`,borderRadius:10,zIndex:100,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",overflow:"hidden"}}>
-                      {custSuggest.map(c=>(
-                        <div key={c.id} onClick={()=>selectCustSuggest(c)}
-                          style={{padding:"12px 14px",cursor:"pointer",borderBottom:`1px solid ${T.divider}`}}
+                    <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:T.cardBg,border:`1.5px solid ${T.accentMid}`,borderRadius:12,zIndex:100,boxShadow:"0 8px 28px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+                      <div style={{padding:"6px 12px",background:T.statBg,borderBottom:`1px solid ${T.divider}`,fontSize:10,color:T.textSecondary,fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>
+                        👥 Pelanggan Lama — Klik untuk isi semula
+                      </div>
+                      {custSuggest.map((cust,idx)=>(
+                        <div key={cust.id} onClick={()=>selectCustSuggest(cust)}
+                          style={{padding:"11px 14px",cursor:"pointer",borderBottom:idx<custSuggest.length-1?`1px solid ${T.divider}`:"none",display:"flex",alignItems:"center",gap:12,transition:"background .15s"}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.accentSoft}
                           onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                            <div>
-                              <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>👤 {c.name}</div>
-                              <div style={{fontSize:11,color:T.textSecondary,marginTop:2}}>
-                                📞 {c.phone||"–"}
-                              </div>
-                              <div style={{fontSize:11,color:T.textSecondary,marginTop:1}}>
-                                🗓️ {c.visitCount||0}x kunjungan · Terakhir: {c.lastVisit||"–"}
-                              </div>
-                            </div>
-                            <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
-                              <div style={{fontSize:12,color:T.accent,fontWeight:700}}>{formatBND(c.totalSpent||0)}</div>
-                              <div style={{fontSize:10,color:T.textSecondary,marginTop:2}}>jumlah total</div>
+                          {/* Avatar */}
+                          <div style={{width:36,height:36,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:15,flexShrink:0}}>
+                            {cust.name[0].toUpperCase()}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>{cust.name}</div>
+                            <div style={{fontSize:11,color:T.textSecondary,marginTop:1}}>
+                              📞 {cust.phone||"–"} &nbsp;·&nbsp; {cust.visitCount||0}x kunjungan
                             </div>
                           </div>
-                          <div style={{marginTop:6,padding:"4px 8px",background:T.accentSoft,borderRadius:6,fontSize:11,color:T.accent,fontWeight:600,display:"inline-block"}}>
-                            ✓ Klik untuk isi semula info
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <div style={{fontSize:12,fontWeight:700,color:T.accent}}>{formatBND(cust.totalSpent||0)}</div>
+                            <div style={{fontSize:10,color:T.textSecondary,marginTop:1}}>{cust.lastVisit||""}</div>
                           </div>
                         </div>
                       ))}
@@ -1082,7 +1087,8 @@ export default function SamliaInvoice() {
           </div>
         )}
 
-                {/* ════ DASHBOARD MODAL ════ */}
+
+                        {/* ════ DASHBOARD MODAL ════ */}
         {showDashboard&&<DashboardModal history={history} formatBND={formatBND} T={T} onClose={()=>setShowDashboard(false)}/>}
 
         {/* ════ TOAST ════ */}
