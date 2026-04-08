@@ -16,12 +16,12 @@ import {
    5. Salin nilai-nilai di bawah dan ganti:
 ══════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID",
+  apiKey: "AIzaSyDs_E8B9_HZSERlm0wUGvxsnJHfr-KS_Pc",
+  authDomain: "samlia-wellness.firebaseapp.com",
+  projectId: "samlia-wellness",
+  storageBucket: "samlia-wellness.firebasestorage.app",
+  messagingSenderId: "297023516674",
+  appId: "1:297023516674:web:8a03a9357da61811aab71b"
 };
 
 const fbApp = initializeApp(firebaseConfig);
