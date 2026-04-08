@@ -16,12 +16,12 @@ import {
    5. Salin nilai-nilai di bawah dan ganti:
 ══════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey: "AIzaSyDs_E8B9_HZSERlm0wUGvxsnJHfr-KS_Pc",
-  authDomain: "samlia-wellness.firebaseapp.com",
-  projectId: "samlia-wellness",
-  storageBucket: "samlia-wellness.firebasestorage.app",
-  messagingSenderId: "297023516674",
-  appId: "1:297023516674:web:8a03a9357da61811aab71b"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID",
 };
 
 const fbApp = initializeApp(firebaseConfig);
@@ -222,8 +222,10 @@ export default function SamliaInvoice() {
         setHistory(invList);
 
         // 5. Pelanggan — load dari Firebase
-        const cusSnap = await getDocs(query(collection(db, COL_CUS), orderBy("name")));
-        setCustomers(cusSnap.docs.map(d=>({id:d.id,...d.data()})));
+        const cusSnap = await getDocs(collection(db, COL_CUS));
+        const cusList = cusSnap.docs.map(d=>({id:d.id,...d.data()}));
+        cusList.sort((a,b)=>a.name.localeCompare(b.name));
+        setCustomers(cusList);
 
         clearTimeout(timeoutId);
       } catch(err) {
@@ -277,13 +279,19 @@ export default function SamliaInvoice() {
   const handleCustNameChange = (val) => {
     setCustomer(p=>({...p,name:val}));
     if(formErrors.name&&val.trim())setFormErrors(p=>({...p,name:null}));
-    if(val.trim().length>=2){
+    if(val.trim().length===0){
+      // Tunjuk semua pelanggan (max 6) bila input kosong
+      if(customers.length>0){
+        setCustSuggest(customers.slice(0,6));
+        setShowCustSuggest(true);
+      } else {
+        setShowCustSuggest(false);
+      }
+    } else {
       const q=val.toLowerCase();
-      const matches=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,5);
+      const matches=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,6);
       setCustSuggest(matches);
       setShowCustSuggest(matches.length>0);
-    } else {
-      setShowCustSuggest(false);
     }
   };
 
@@ -588,8 +596,8 @@ export default function SamliaInvoice() {
                 <label style={lbl}>Nama Pelanggan / Customer Name</label>
                 <div style={{position:"relative"}}>
                   <input value={customer.name} onChange={e=>handleCustNameChange(e.target.value)}
-                    onBlur={()=>setTimeout(()=>setShowCustSuggest(false),200)}
-                    onFocus={()=>customer.name.length>=2&&custSuggest.length>0&&setShowCustSuggest(true)}
+                    onBlur={()=>setTimeout(()=>setShowCustSuggest(false),400)}
+                    onFocus={()=>{ if(customer.name.trim().length>=2){ const q=customer.name.toLowerCase(); const m=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,5); if(m.length>0){setCustSuggest(m);setShowCustSuggest(true);} } }}
                     placeholder="Nama penuh..."
                     style={{...inp,border:formErrors.name?`1.5px solid #e11d48`:`1.5px solid ${T.inputBorder}`}}/>
                   {showCustSuggest&&custSuggest.length>0&&(
@@ -598,7 +606,9 @@ export default function SamliaInvoice() {
                         👥 Pelanggan Lama — Klik untuk isi semula
                       </div>
                       {custSuggest.map((cust,idx)=>(
-                        <div key={cust.id} onClick={()=>selectCustSuggest(cust)}
+                        <div key={cust.id}
+                          onMouseDown={e=>{e.preventDefault();selectCustSuggest(cust);}}
+                          onTouchStart={e=>{e.preventDefault();selectCustSuggest(cust);}}
                           style={{padding:"11px 14px",cursor:"pointer",borderBottom:idx<custSuggest.length-1?`1px solid ${T.divider}`:"none",display:"flex",alignItems:"center",gap:12,transition:"background .15s"}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.accentSoft}
                           onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
