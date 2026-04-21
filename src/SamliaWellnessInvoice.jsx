@@ -23,7 +23,6 @@ const firebaseConfig = {
   messagingSenderId: "297023516674",
   appId: "1:297023516674:web:8a03a9357da61811aab71b"
 };
-
 const fbApp = initializeApp(firebaseConfig);
 const db    = getFirestore(fbApp);
 
@@ -279,38 +278,29 @@ export default function SamliaInvoice() {
   const handleCustNameChange = (val) => {
     setCustomer(p=>({...p,name:val}));
     if(formErrors.name&&val.trim())setFormErrors(p=>({...p,name:null}));
-    if(val.trim().length===0){
-      // Tunjuk semua pelanggan (max 6) bila input kosong
-      if(customers.length>0){
-        setCustSuggest(customers.slice(0,6));
-        setShowCustSuggest(true);
-      } else {
-        setShowCustSuggest(false);
-      }
-    } else {
-      const q=val.toLowerCase();
-      const matches=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,6);
-      setCustSuggest(matches);
-      setShowCustSuggest(matches.length>0);
-    }
+    // Update suggestions setiap kali taip
+    if(customers.length===0){ setShowCustSuggest(false); return; }
+    const q = val.trim().toLowerCase();
+    const list = q.length===0
+      ? customers.slice(0,6)
+      : customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,6);
+    setCustSuggest(list);
+    setShowCustSuggest(list.length>0);
   };
 
   const selectCustSuggest = (cust) => {
-    // Auto-isi semua info pelanggan dari database
+    setShowCustSuggest(false);
+    setCustSuggest([]);
     setCustomer(p=>({
       ...p,
       name: cust.name,
       phone: cust.phone || p.phone,
-      // date & payment kekal (mungkin berbeza setiap kunjungan)
-      // remarks dikosongkan semula
       remarks: "",
     }));
-    setShowCustSuggest(false);
-    setCustSuggest([]);
     const visits = cust.visitCount || 0;
     const spent  = cust.totalSpent || 0;
     const last   = cust.lastVisit ? ` · Terakhir: ${cust.lastVisit}` : "";
-    toast(`👤 ${cust.name} dipilih — ${visits}x kunjungan · ${formatBND(spent)} total${last}`, "info", 4000);
+    toast(`👤 ${cust.name} — ${visits}x kunjungan · ${formatBND(spent)} total${last}`, "info", 3500);
   };
 
   /* ── Upsert customer ke Firestore ── */
@@ -595,35 +585,42 @@ export default function SamliaInvoice() {
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 <label style={lbl}>Nama Pelanggan / Customer Name</label>
                 <div style={{position:"relative"}}>
-                  <input value={customer.name} onChange={e=>handleCustNameChange(e.target.value)}
-                    onBlur={()=>setTimeout(()=>setShowCustSuggest(false),400)}
-                    onFocus={()=>{ if(customer.name.trim().length>=2){ const q=customer.name.toLowerCase(); const m=customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,5); if(m.length>0){setCustSuggest(m);setShowCustSuggest(true);} } }}
-                    placeholder="Nama penuh..."
+                  <input value={customer.name}
+                    onChange={e=>handleCustNameChange(e.target.value)}
+                    onBlur={()=>setTimeout(()=>setShowCustSuggest(false),500)}
+                    onFocus={()=>{
+                      if(customers.length===0) return;
+                      const q = customer.name.trim().toLowerCase();
+                      const list = q.length===0
+                        ? customers.slice(0,6)
+                        : customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone||"").includes(q)).slice(0,6);
+                      if(list.length>0){ setCustSuggest(list); setShowCustSuggest(true); }
+                    }}
+                    placeholder="Nama penuh (klik untuk cari pelanggan lama)"
                     style={{...inp,border:formErrors.name?`1.5px solid #e11d48`:`1.5px solid ${T.inputBorder}`}}/>
                   {showCustSuggest&&custSuggest.length>0&&(
-                    <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:T.cardBg,border:`1.5px solid ${T.accentMid}`,borderRadius:12,zIndex:100,boxShadow:"0 8px 28px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-                      <div style={{padding:"6px 12px",background:T.statBg,borderBottom:`1px solid ${T.divider}`,fontSize:10,color:T.textSecondary,fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>
-                        👥 Pelanggan Lama — Klik untuk isi semula
+                    <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:T.cardBg,border:`1.5px solid ${T.accentMid}`,borderRadius:12,zIndex:200,boxShadow:"0 12px 36px rgba(0,0,0,0.25)",overflow:"hidden"}}>
+                      <div style={{padding:"8px 12px",background:T.accentSoft,borderBottom:`1px solid ${T.divider}`,fontSize:11,color:T.accent,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span>👥 Pelanggan Lama — Ketik atau pilih</span>
+                        <span style={{fontSize:10,opacity:0.7}}>{custSuggest.length} dijumpai</span>
                       </div>
                       {custSuggest.map((cust,idx)=>(
                         <div key={cust.id}
-                          onMouseDown={e=>{e.preventDefault();selectCustSuggest(cust);}}
-                          onTouchStart={e=>{e.preventDefault();selectCustSuggest(cust);}}
-                          style={{padding:"11px 14px",cursor:"pointer",borderBottom:idx<custSuggest.length-1?`1px solid ${T.divider}`:"none",display:"flex",alignItems:"center",gap:12,transition:"background .15s"}}
+                          onPointerDown={e=>{ e.preventDefault(); e.stopPropagation(); selectCustSuggest(cust); }}
+                          style={{padding:"12px 14px",cursor:"pointer",borderBottom:idx<custSuggest.length-1?`1px solid ${T.divider}`:"none",display:"flex",alignItems:"center",gap:12,WebkitTapHighlightColor:"transparent"}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.accentSoft}
                           onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          {/* Avatar */}
-                          <div style={{width:36,height:36,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:15,flexShrink:0}}>
+                          <div style={{width:38,height:38,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:16,flexShrink:0}}>
                             {cust.name[0].toUpperCase()}
                           </div>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:13,fontWeight:700,color:T.textPrimary}}>{cust.name}</div>
-                            <div style={{fontSize:11,color:T.textSecondary,marginTop:1}}>
-                              📞 {cust.phone||"–"} &nbsp;·&nbsp; {cust.visitCount||0}x kunjungan
+                            <div style={{fontSize:14,fontWeight:700,color:T.textPrimary}}>{cust.name}</div>
+                            <div style={{fontSize:11,color:T.textSecondary,marginTop:2}}>
+                              📞 {cust.phone||"–"} &nbsp;·&nbsp; {cust.visitCount||0}× kunjungan
                             </div>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0}}>
-                            <div style={{fontSize:12,fontWeight:700,color:T.accent}}>{formatBND(cust.totalSpent||0)}</div>
+                            <div style={{fontSize:13,fontWeight:700,color:T.accent}}>{formatBND(cust.totalSpent||0)}</div>
                             <div style={{fontSize:10,color:T.textSecondary,marginTop:1}}>{cust.lastVisit||""}</div>
                           </div>
                         </div>
