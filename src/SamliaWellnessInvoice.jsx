@@ -23,6 +23,7 @@ const firebaseConfig = {
   messagingSenderId: "297023516674",
   appId: "1:297023516674:web:8a03a9357da61811aab71b"
 };
+
 const fbApp = initializeApp(firebaseConfig);
 const db    = getFirestore(fbApp);
 
@@ -48,7 +49,7 @@ const LOGO_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1B
 /* ─── HELPERS ─── */
 const formatBND = (n) => "B$ " + Number(n||0).toLocaleString("en-BN",{minimumFractionDigits:2,maximumFractionDigits:2});
 const todayBNT = () => { const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Brunei"})); return d.toISOString().split("T")[0]; };
-const formatDateDisplay = (iso) => { if(!iso)return""; const[y,m,day]=iso.split("-"); const months=["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"]; return `${parseInt(day,10)} ${months[parseInt(m,10)-1]} ${y}`; };
+const formatDateDisplay = (iso) => { if(!iso)return""; const[y,m,day]=iso.split("-"); const months=["January","February","March","April","May","June","July","August","September","October","November","December"]; return `${parseInt(day,10)} ${months[parseInt(m,10)-1]} ${y}`; };
 const genInvoiceNo = (counter) => { const d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Brunei"})); const ymd=d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0"); return `SW-${ymd}-${String(counter).padStart(3,"0")}`; };
 
 const DEFAULT_MENU = [
@@ -56,7 +57,7 @@ const DEFAULT_MENU = [
   {name:"Foot Reflexology",price:30},{name:"Manicure & Pedicure",price:28},
   {name:"Callus Treatment",price:22},{name:"Rawatan Pantang Bersalin",price:65},{name:"Ratus Temanten",price:55},
 ];
-const PAYMENT_METHODS = ["Cash","Bank Transfer", "Transfer Online BIBD", "QR Pay BIBD", "QR Pay BAIDURI", "Debit Card"];
+const PAYMENT_METHODS = ["Tunai / Cash","Pindahan Bank / Bank Transfer","QR Pay (BIBD / BAIDURI)","Kad Debit / Debit Card"];
 const EMPTY_CUSTOMER = {name:"",phone:"",date:todayBNT(),payment:PAYMENT_METHODS[0],remarks:""};
 /* ══════ THEMES ══════ */
 const LIGHT = {
@@ -200,9 +201,23 @@ export default function SamliaInvoice() {
           setMenu(svcSnap.docs.map(d=>({id:d.id,...d.data()})));
         }
 
-        // 2. Counter
+        // 2. Counter — reset setiap hari baru
+        const todayYMD = todayBNT();
         const ctrSnap = await getDoc(docCounter());
-        if (ctrSnap.exists()) setCounter(Number(ctrSnap.data().value));
+        if (ctrSnap.exists()) {
+          const saved = ctrSnap.data();
+          if (saved.date && saved.date === todayYMD) {
+            // Hari sama — teruskan counter
+            setCounter(Number(saved.value));
+          } else {
+            // Hari baru — reset ke 1
+            setCounter(1);
+            await setDoc(docCounter(), {value:1, date:todayYMD});
+          }
+        } else {
+          // Belum ada counter — mula dari 1
+          await setDoc(docCounter(), {value:1, date:todayYMD});
+        }
 
         // 3. Draft invois semasa
         const draftSnap = await getDoc(docDraft());
@@ -408,7 +423,7 @@ export default function SamliaInvoice() {
     if(!validate())return; setSaving(true);
     await saveToHistory();
     const next = counter+1; setCounter(next);
-    await setDoc(docCounter(), {value:next}, {merge:true});
+    await setDoc(docCounter(), {value:next, date:todayBNT()});
     setCustomer(EMPTY_CUSTOMER); setRows([]); setDiscountVal(""); setDiscountMode("percent"); setFormErrors({});
     await setDoc(docDraft(), {value:null}, {merge:true});
     toast(`Invois ${invoiceNo} disimpan! Sedia untuk invois baru.`,"success");
@@ -438,7 +453,7 @@ export default function SamliaInvoice() {
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Lato',sans-serif;background:white;padding:20px}
-  @media print{body{padding:0}}
+  @page{margin:0;size:auto}@media print{body{padding:0}}
 </style>
 </head><body>${printContent}</body></html>`);
     win.document.close();
@@ -454,7 +469,7 @@ export default function SamliaInvoice() {
 
   const restoreFromHistory = async snap=>{
     const next=counter+1; setCounter(next);
-    await setDoc(docCounter(), {value:next}, {merge:true});
+    await setDoc(docCounter(), {value:next, date:todayBNT()});
     setCustomer({...snap.customer});
     setRows(snap.rows.map(({lineTotal,lineDisc,lineNet,...r})=>r));
     setDiscountMode(snap.discountMode); setDiscountVal(snap.discountVal);
@@ -520,8 +535,7 @@ export default function SamliaInvoice() {
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:#0f172a;font-family:'Lato',sans-serif;-webkit-text-size-adjust:100%;}
-        @page{margin:0}
-        @media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:12px!important}body{background:white}}
+        @page{margin:0;size:auto}@media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:12px!important}body{background:white}}
         @keyframes tp{from{width:100%}to{width:0%}}
         option{background:${T.inputBg};color:${T.inputColor};}
 
@@ -816,7 +830,7 @@ export default function SamliaInvoice() {
               <img src={LOGO_B64} alt="" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover"}}/>
               <div style={{textAlign:"right"}}>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#92400e"}}>Samlia Wellness</h2>
-                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+673 710 0696</p>
+                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+673 869 8379 · yani2912@gmail.com</p>
               </div>
             </div>
             <div style={{height:3,background:"linear-gradient(90deg,#92400e,#d97706,#fcd34d,#d97706,#92400e)",borderRadius:2,marginBottom:20}}/>
@@ -869,7 +883,7 @@ export default function SamliaInvoice() {
             <div style={{textAlign:"center"}}>
               <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#92400e",marginBottom:4}}>🌸 Terima kasih kerana memilih Samlia Wellness 🌸</p>
               <p style={{fontSize:11,color:"#a16207"}}>Thank you for choosing Samlia Wellness</p>
-              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +673 710 0696</p>
+              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +673 869 8379 · yani2912@gmail.com</p>
             </div>
           </div>
         </div>
@@ -1127,8 +1141,8 @@ function DashboardModal({history,formatBND,T,onClose}) {
   const [selDay, setSelDay] = useState(null);
   const [activeTab, setActiveTab] = useState("overview"); // overview | services | transactions
 
-  const MONTHS = ["Jan","Feb","Mac","Apr","Mei","Jun","Jul","Ogo","Sep","Okt","Nov","Dis"];
-  const MONTHS_FULL = ["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const DAYS = [{v:1,l:"Isnin"},{v:2,l:"Selasa"},{v:3,l:"Rabu"},{v:4,l:"Khamis"},{v:5,l:"Jumaat"},{v:6,l:"Sabtu"},{v:0,l:"Ahad"}];
   const QUICK = [["today","Hari Ini"],["week","Minggu Ini"],["month","Bulan Ini"],["year","Tahun Ini"],["all","Semua"]];
 
