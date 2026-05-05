@@ -831,7 +831,7 @@ export default function SamliaInvoice() {
               <img src={LOGO_B64} alt="" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover"}}/>
               <div style={{textAlign:"right"}}>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#92400e"}}>Samlia Wellness</h2>
-                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+673 869 8379 · yani2912@gmail.com</p>
+                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+6737100696</p>
               </div>
             </div>
             <div style={{height:3,background:"linear-gradient(90deg,#92400e,#d97706,#fcd34d,#d97706,#92400e)",borderRadius:2,marginBottom:20}}/>
@@ -884,7 +884,7 @@ export default function SamliaInvoice() {
             <div style={{textAlign:"center"}}>
               <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#92400e",marginBottom:4}}>🌸 Terima kasih kerana memilih Samlia Wellness 🌸</p>
               <p style={{fontSize:11,color:"#a16207"}}>Thank you for choosing Samlia Wellness</p>
-              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +673 869 8379 · yani2912@gmail.com</p>
+              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +6737100696</p>
             </div>
           </div>
         </div>
