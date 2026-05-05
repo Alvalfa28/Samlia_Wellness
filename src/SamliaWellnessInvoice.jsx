@@ -56,7 +56,7 @@ const DEFAULT_MENU = [
   {name:"Foot Reflexology",price:30},{name:"Manicure & Pedicure",price:28},
   {name:"Callus Treatment",price:22},{name:"Rawatan Pantang Bersalin",price:65},{name:"Ratus Temanten",price:55},
 ];
-const PAYMENT_METHODS = ["Tunai / Cash","Pindahan Bank / Bank Transfer","QR Pay (BIBD / BAIDURI)","Kad Debit / Debit Card"];
+const PAYMENT_METHODS = ["Cash","Bank Transfer","QR Pay BIBD", "QR Pay BAIDURI", "Debit Card"];
 const EMPTY_CUSTOMER = {name:"",phone:"",date:todayBNT(),payment:PAYMENT_METHODS[0],remarks:""};
 /* ══════ THEMES ══════ */
 const LIGHT = {
@@ -815,7 +815,7 @@ export default function SamliaInvoice() {
               <img src={LOGO_B64} alt="" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover"}}/>
               <div style={{textAlign:"right"}}>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#92400e"}}>Samlia Wellness</h2>
-                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+673 869 8379 · yani2912@gmail.com</p>
+                <p style={{fontSize:11,color:"#78350f",lineHeight:1.7}}>Tanjong Bunut, Brunei Darussalam<br/>+673 710 0696</p>
               </div>
             </div>
             <div style={{height:3,background:"linear-gradient(90deg,#92400e,#d97706,#fcd34d,#d97706,#92400e)",borderRadius:2,marginBottom:20}}/>
@@ -868,7 +868,7 @@ export default function SamliaInvoice() {
             <div style={{textAlign:"center"}}>
               <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#92400e",marginBottom:4}}>🌸 Terima kasih kerana memilih Samlia Wellness 🌸</p>
               <p style={{fontSize:11,color:"#a16207"}}>Thank you for choosing Samlia Wellness</p>
-              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +673 869 8379 · yani2912@gmail.com</p>
+              <p style={{fontSize:10,color:"#ca8a04",marginTop:8}}>Tanjong Bunut, Brunei Darussalam · +673 710 0696</p>
             </div>
           </div>
         </div>
