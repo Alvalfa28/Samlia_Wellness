@@ -454,7 +454,7 @@ export default function SamliaInvoice() {
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Lato',sans-serif;background:white;padding:20px}
-  @page{margin:0;size:auto}@media print{body{padding:0}}
+  @page{margin:14mm 12mm;size:auto}@media print{body{padding:0}}
 </style>
 </head><body>${printContent}</body></html>`);
     win.document.close();
@@ -865,7 +865,7 @@ export default function SamliaInvoice() {
                     <td style={{padding:"8px",textAlign:"center",color:"#92400e"}}>{r.qty}</td>
                     <td style={{padding:"8px",textAlign:"center",color:"#78350f"}}>{formatBND(r.price)}</td>
                     <td style={{padding:"8px",textAlign:"center",color:lineDisc>0?"#e11d48":"#9ca3af"}}>{lineDisc>0?`-${formatBND(lineDisc)}`:"–"}</td>
-                    <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:"#92400e"}}>{formatBND(lineNet)}</td>
+                    <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:"#92400e"}}>{formatBND(lineNet)}</td>
                   </tr>
                 );})}
               </tbody>
