@@ -520,6 +520,7 @@ export default function SamliaInvoice() {
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:#0f172a;font-family:'Lato',sans-serif;-webkit-text-size-adjust:100%;}
+        @page{margin:0}
         @media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:12px!important}body{background:white}}
         @keyframes tp{from{width:100%}to{width:0%}}
         option{background:${T.inputBg};color:${T.inputColor};}
