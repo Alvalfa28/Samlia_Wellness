@@ -58,7 +58,7 @@ const DEFAULT_MENU = [
   {name:"Foot Reflexology",price:30},{name:"Manicure & Pedicure",price:28},
   {name:"Callus Treatment",price:22},{name:"Rawatan Pantang Bersalin",price:65},{name:"Ratus Temanten",price:55},
 ];
-const PAYMENT_METHODS = ["Tunai / Cash","Pindahan Bank / Bank Transfer","QR Pay (BIBD / BAIDURI)","Kad Debit / Debit Card"];
+const PAYMENT_METHODS = ["Cash","Transfer BIBD", "Transfer Baiduri", "QR Pay BIBD", "QR PAY BAIDURI","Debit Card"];
 const EMPTY_CUSTOMER = {name:"",phone:"",date:todayBNT(),payment:PAYMENT_METHODS[0],remarks:""};
 /* ══════ THEMES ══════ */
 const LIGHT = {
