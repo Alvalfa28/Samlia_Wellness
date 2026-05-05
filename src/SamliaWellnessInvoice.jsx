@@ -24,6 +24,7 @@ const firebaseConfig = {
   appId: "1:297023516674:web:8a03a9357da61811aab71b"
 };
 
+
 const fbApp = initializeApp(firebaseConfig);
 const db    = getFirestore(fbApp);
 
@@ -453,7 +454,7 @@ export default function SamliaInvoice() {
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Lato',sans-serif;background:white;padding:20px}
-  @page{margin:0;size:auto}@media print{body{padding:0}}
+  @page{margin:14mm 12mm;size:auto}@media print{body{padding:0}}
 </style>
 </head><body>${printContent}</body></html>`);
     win.document.close();
@@ -535,7 +536,7 @@ export default function SamliaInvoice() {
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:#0f172a;font-family:'Lato',sans-serif;-webkit-text-size-adjust:100%;}
-        @page{margin:0;size:auto}@media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:12px!important}body{background:white}}
+        @page{margin:14mm 12mm;size:auto}@media print{.no-print{display:none!important}.print-area{box-shadow:none!important;margin:0!important;width:100%!important;padding:0!important}body{background:white}}
         @keyframes tp{from{width:100%}to{width:0%}}
         option{background:${T.inputBg};color:${T.inputColor};}
 
@@ -851,7 +852,7 @@ export default function SamliaInvoice() {
             <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20,fontSize:12}}>
               <thead>
                 <tr style={{background:"#92400e",color:"white"}}>
-                  {["No","Perkhidmatan / Service","Qty","Harga","Diskaun","Jumlah"].map((h,i)=><th key={i} style={{padding:"8px",textAlign:i>=2?"center":"left",fontSize:10,letterSpacing:0.5}}>{h}</th>)}
+                  {["No","Perkhidmatan / Service","Qty","Harga","Discount","Jumlah"].map((h,i)=><th key={i} style={{padding:"8px",textAlign:i>=2?"center":"left",fontSize:10,letterSpacing:0.5}}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -870,7 +871,7 @@ export default function SamliaInvoice() {
               </tbody>
             </table>
             <div style={{marginLeft:"auto",width:290}}>
-              {[["Subtotal (Harga Asal)",formatBND(subtotal),"#78350f"],...(totalItemDisc>0?[["Diskaun Item",`-${formatBND(totalItemDisc)}`,"#e11d48"],["Subtotal Selepas Diskaun",formatBND(subtotalAfterItemDisc),"#78350f"]]:[]),(discountAmt>0?["Diskaun Transaksi",`-${formatBND(discountAmt)}`,"#e11d48"]:null)].filter(Boolean).map(([l,v,c])=>(
+              {[["Subtotal (Harga Asal)",formatBND(subtotal),"#78350f"],...(totalItemDisc>0?[["Discount Item",`-${formatBND(totalItemDisc)}`,"#e11d48"],["Subtotal After Discount",formatBND(subtotalAfterItemDisc),"#78350f"]]:[]),(discountAmt>0?["Discount Transaction",`-${formatBND(discountAmt)}`,"#e11d48"]:null)].filter(Boolean).map(([l,v,c])=>(
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:"#a16207"}}>{l}</span><span style={{fontWeight:600,color:c}}>{v}</span></div>
               ))}
               <div style={{height:1,background:"#d97706",margin:"8px 0"}}/>
@@ -915,7 +916,7 @@ export default function SamliaInvoice() {
                     </div>
                     {historyView.customer.remarks&&<div style={{background:T.statBg,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:T.textSecondary,fontStyle:"italic"}}>"{historyView.customer.remarks}"</div>}
                     <table style={{width:"100%",borderCollapse:"collapse",marginBottom:16,fontSize:12}}>
-                      <thead><tr style={{background:"#92400e",color:"white"}}>{["No","Perkhidmatan","Qty","Harga","Diskaun","Jumlah"].map((h,i)=><th key={i} style={{padding:"8px",textAlign:i>=2?"center":"left",fontSize:10}}>{h}</th>)}</tr></thead>
+                      <thead><tr style={{background:"#92400e",color:"white"}}>{["No","Perkhidmatan","Qty","Harga","Discount","Jumlah"].map((h,i)=><th key={i} style={{padding:"8px",textAlign:i>=2?"center":"left",fontSize:10}}>{h}</th>)}</tr></thead>
                       <tbody>{historyView.rows.map((r,i)=>(
                         <tr key={i} style={{background:i%2===0?T.cardBg:T.rowAlt}}>
                           <td style={{padding:"8px",color:T.accent,fontWeight:700}}>{i+1}</td>
@@ -929,8 +930,8 @@ export default function SamliaInvoice() {
                     </table>
                     <div style={{marginLeft:"auto",width:280,marginBottom:20}}>
                       <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:T.textSecondary}}>Subtotal</span><span style={{fontWeight:600,color:T.textPrimary}}>{formatBND(historyView.subtotal)}</span></div>
-                      {historyView.totalItemDisc>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:T.textSecondary}}>Diskaun Item</span><span style={{fontWeight:600,color:"#e11d48"}}>-{formatBND(historyView.totalItemDisc)}</span></div>}
-                      {historyView.discountAmt>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:T.textSecondary}}>Diskaun Transaksi</span><span style={{fontWeight:600,color:"#e11d48"}}>-{formatBND(historyView.discountAmt)}</span></div>}
+                      {historyView.totalItemDisc>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:T.textSecondary}}>Discount Item</span><span style={{fontWeight:600,color:"#e11d48"}}>-{formatBND(historyView.totalItemDisc)}</span></div>}
+                      {historyView.discountAmt>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:13}}><span style={{color:T.textSecondary}}>Discount Transaction</span><span style={{fontWeight:600,color:"#e11d48"}}>-{formatBND(historyView.discountAmt)}</span></div>}
                       <div style={{height:1,background:T.accentMid,margin:"8px 0"}}/>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:700,color:T.accent}}>JUMLAH</span><span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,color:T.accent}}>{formatBND(historyView.total)}</span></div>
                     </div>
